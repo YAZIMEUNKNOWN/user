@@ -1,17 +1,14 @@
-from flask import Flask, request
-import requests, random, json, time
+import requests, os, random, time, json
 from bs4 import BeautifulSoup
 
-TOKEN = "8285732668:AAGXaDR3m1HA5GSDq1LEs5Cn4CSKcxnZDO0"
+# ======================== CONFIG ========================
+TOKEN = os.environ['TOKEN']         # Token bot dari Environment Variable
+GROUP_ID = int(os.environ['GROUP_ID'])  # ID grup dari Environment Variable
 API = f"https://api.telegram.org/bot{TOKEN}"
-GROUP_ID = -1003473546168
-
-app = Flask(__name__)
 
 used_name = []
 g_name = b_name = 0
-last_sent = 0
-letters = "abcdefghijklmnopqrstuvwxyz"
+last_sent = 0  # kontrol delay 1 detik
 
 # ======================== CEK FRAGMENT ========================
 def fragment_check(uname):
@@ -61,35 +58,35 @@ def send_good_to_group(username):
         pass
     last_sent = time.time()
 
+# ======================== STATUS TERMINAL ========================
+def status(uname):
+    os.system("clear" if os.name != "nt" else "cls")
+    print(f"Good Name : {g_name}")
+    print(f"Bad Name  : {b_name}")
+    print(f"Username  : {uname}")
+    print("By @yaeetim")
+
 # ======================== GENERATE USERNAME ========================
-def generate_username():
+def generate_usernames():
+    global g_name, b_name
+    letters = "abcdefghijklmnopqrstuvwxyz"  # alfabet only
+
     while True:
         username = "".join(random.choice(letters) for _ in range(5))
+        status(username)
+
         if username in used_name:
             continue
         used_name.append(username)
-        if fragment_check(username) and get_telegram_web_user(username):
-            send_good_to_group(username)
-            return username
 
-# ======================== WEBHOOK HANDLER ========================
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    data = request.json
-    chat_id = data["message"]["chat"]["id"]
-    text = data["message"].get("text", "")
+        if fragment_check(username):
+            if get_telegram_web_user(username):
+                g_name += 1
+                send_good_to_group(username)
+            else:
+                b_name += 1
+        else:
+            b_name += 1
 
-    if text == "/start":
-        requests.get(f"{API}/sendMessage", params={
-            "chat_id": chat_id,
-            "text": "Bot aktif! Sedang generate username..."
-        })
-        uname = generate_username()
-        requests.get(f"{API}/sendMessage", params={
-            "chat_id": chat_id,
-            "text": f"Username generated: {uname}"
-        })
-    return {"ok": True}
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# ======================== RUN ========================
+generate_usernames()
